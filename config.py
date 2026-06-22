@@ -1,11 +1,13 @@
 import torch
 
 class Config:
-    data_folder = './data'
+    data_folder = './data/manila'
+    pretrained_weights = './output/magtte_best.pth'
 
-    sample_fraction = 0.20
+
+    sample_fraction = 1.0
     n_iterations = 1
-    n_epochs = 50
+    n_epochs = 20
     batch_size = 64
     learning_rate = 0.001
     lstm_learning_rate = 0.0005

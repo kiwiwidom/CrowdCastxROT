@@ -1030,9 +1030,11 @@ def train_magtte(train_loader, val_loader, test_loader,
                  adj_geo, adj_dist, adj_soc,
                  segment_types, scaler,
                  output_folder, device, config):
-    """Train the baseline MAGTTE model (unchanged)."""
+
     print_section("MAGTTE TRAINING")
+
     num_segments = len(segment_types)
+
     model = MAGTTE(
         num_nodes=num_segments,
         n_heads=config.n_heads,
@@ -1042,10 +1044,74 @@ def train_magtte(train_loader, val_loader, test_loader,
         historical_dim=config.historical_dim,
         dropout=config.dropout,
     ).to(device)
+
     model.set_adjacency_matrices(adj_geo, adj_dist, adj_soc)
 
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate,
-                           weight_decay=config.weight_decay)
+    if getattr(config, "pretrained_weights", None):
+
+        if os.path.exists(config.pretrained_weights):
+
+            print(f"\nLoading pretrained weights...")
+            print(f"   Source: {config.pretrained_weights}")
+
+            try:
+                checkpoint = torch.load(
+                    config.pretrained_weights,
+                    map_location=device
+                )
+
+                current_dict = model.state_dict()
+
+                compatible_weights = {
+                    k: v
+                    for k, v in checkpoint.items()
+                    if k in current_dict
+                    and current_dict[k].shape == v.shape
+                }
+
+                current_dict.update(compatible_weights)
+
+                model.load_state_dict(current_dict)
+
+                print("Transfer learning loaded successfully")
+                print(
+                    f"   Loaded "
+                    f"{len(compatible_weights)}/{len(current_dict)} layers"
+                )
+
+                skipped = [
+                    k for k, v in checkpoint.items()
+                    if k not in current_dict
+                    or (
+                        k in current_dict
+                        and current_dict[k].shape != v.shape
+                    )
+                ]
+
+                if skipped:
+                    print(f"   Skipped {len(skipped)} incompatible layers")
+
+            except Exception as e:
+                print(f"Failed to load pretrained weights")
+                print(e)
+                print("Training from scratch...")
+
+        else:
+            print(
+                f"Pretrained file not found: "
+                f"{config.pretrained_weights}"
+            )
+            print("Training from scratch...")
+
+    else:
+        print("No pretrained weights configured")
+
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay
+    )
+
     criterion = nn.SmoothL1Loss()
     best_val_loss = float('inf')
     best_ckpt = os.path.join(output_folder, 'magtte_best.pth')
