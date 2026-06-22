@@ -604,7 +604,7 @@ def _assign_social_vectors_to_clusters(clusters, soc_df_with_coords):
 
 def build_adjacency_matrices_fixed(segments_df, clusters,
                                    known_stops=None,
-                                   social_path='./data/social_function.csv'):
+                                   social_path='./data/manila/social_function.csv'):
     print_section("BUILDING ADJACENCY MATRICES")
 
     if len(segments_df) == 0:

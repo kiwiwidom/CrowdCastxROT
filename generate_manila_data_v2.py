@@ -2,9 +2,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import os
-from math import radians, cos, sin, asin, sqrt
 
-stations_data = {
+lines = {
     "LRT1": [
         ("Fernando Poe Jr.", 14.6575596, 121.0211401), ("Balintawak", 14.6574221, 121.0038959),
         ("Monumento", 14.6543138, 120.9838375), ("5th Avenue", 14.6444204, 120.9835539),
@@ -40,92 +39,57 @@ stations_data = {
     ]
 }
 
-speeds = {"LRT1": 16.67, "LRT2": 16.67, "MRT3": 16.67}
-
-def haversine_dist(p1, p2):
-    lat1, lon1 = map(radians, p1); lat2, lon2 = map(radians, p2)
-    a = sin((lat2-lat1)/2)**2 + cos(lat1)*cos(lat2)*sin((lon2-lon1)/2)**2
-    return 2 * asin(sqrt(a)) * 6371000
-
-def get_headway(current_time):
-    time_val = current_time.hour + (current_time.minute / 60)
-    if 4.5 <= time_val <= 7.0: return 5.5 # Morning
-    if 7.0 < time_val <= 9.0: return 3.5 # AM Peak
-    if 9.0 < time_val <= 17.0: return 5.2 # Off Peak
-    if 17.0 < time_val <= 19.0: return 3.5 # PM Peak
-    return 10.0 # Extended/Night
-
-def generate_dataset(filename, num_trips=1000):
-    data = []
-    base_date = datetime(2026, 6, 1, 4, 30, 0)
+def generate_full_system_telemetry(filename, num_trips=800):
+    all_pings = []
+    base_date = datetime(2026, 6, 1, 5, 0, 0)
+    print(f"Simulating {num_trips} trips across LRT-1, LRT-2, and MRT-3...")
 
     for t_id in range(num_trips):
-        line = np.random.choice(["LRT1", "LRT2", "MRT3"])
-        station_list = stations_data[line]
-        v_limit = speeds[line]
+        line_name = np.random.choice(list(lines.keys()))
+        station_list = lines[line_name]
         
-        start_node = np.random.randint(0, len(station_list)-5)
-        trip_path = station_list[start_node : start_node + np.random.randint(5, 12)]
+        trip_start = base_date + timedelta(minutes=15 * t_id)
+        is_raining = 1 if np.random.random() < 0.3 else 0
         
-        start_time = base_date + timedelta(minutes=10 * t_id)
-        is_raining = 1 if np.random.random() < 0.25 else 0
-        
-        for i in range(len(trip_path)-1):
-            s1_name, s1_lat, s1_lon = trip_path[i]
-            s2_name, s2_lat, s2_lon = trip_path[i+1]
-            dist = haversine_dist((s1_lat, s1_lon), (s2_lat, s2_lon))
+        for i in range(len(station_list)-1):
+            s1_name, s1_lat, s1_lon = station_list[i]
+            s2_name, s2_lat, s2_lon = station_list[i+1]
             
-            base_time = dist / v_limit
-            headway = get_headway(start_time)
-            
-            hour = start_time.hour
-            is_peak = 1 if (7 <= hour <= 9 or 17 <= hour <= 20) else 0
-            
-            delay = 0
-            if is_peak: delay += np.random.randint(60, 300) # +1-5 min rush
-            if is_raining: delay += np.random.randint(30, 120) # +0.5-2 min rain
-            
-            actual_duration = base_time + delay + 30 # +30s Dwell
-            
-            data.append({
-                'trip_id': f"MNL_{line}_{t_id}",
-                'timestamp': start_time,
-                'originStopName': s1_name, 'originLat': s1_lat, 'originLon': s1_lon,
-                'destinationStopName': s2_name, 'destinationLat': s2_lat, 'destinationLon': s2_lon,
-                'duration_sec': actual_duration,
-                'arrivalDelay': delay,
-                'departureDelay': delay + 5,
-                'dwellTime_sec': 30 + (20 if is_peak else 0),
-                'distance_m': dist,
-                'speed_mps': dist / actual_duration,
-                'rain': is_raining,
-                'congestionLevel': 4 if (is_peak and is_raining) else (3 if is_peak else 1),
-                'is_peak_hour': is_peak,
-                'is_weekend': 1 if start_time.weekday() >= 5 else 0,
-                'latitude': s1_lat, 'longitude': s1_lon
-            })
-            start_time += timedelta(seconds=actual_duration + 30)
+            for _ in range(3):
+                all_pings.append({
+                    'trip_id': f"{line_name}_{t_id}", 'timestamp': trip_start,
+                    'latitude': s1_lat, 'longitude': s1_lon, 'is_gps_valid': 1,
+                    'rain': is_raining, 'arrivalDelay': 0, 'congestionLevel': 2
+                })
+                trip_start += timedelta(seconds=20)
 
-    df = pd.DataFrame(data)
-    all_cols = ['trip_id', 'vehicle_id', 'vehicleLabel', 'vehicleLicencePlate', 'trip_stop_sequence', 
-                'vehicle_stop_sequence', 'originStopID', 'originStopName', 'originLat', 'originLon', 
-                'destinationStopID', 'destinationStopName', 'destinationLat', 'destinationLon', 
-                'speed_kph', 'speed_mps', 'distance_m', 'delta_t_sec', 'travel_time_sec', 'dwellTime_sec', 
-                'total_travel_time_sec', 'total_distance_m', 'congestionLevel', 'odometer', 'bearing', 
-                'temperature_2m', 'apparent_temperature', 'precipitation', 'rain', 'snowfall', 
-                'windspeed_10m', 'windgusts_10m', 'winddirection_10m', 'is_slow_speed', 'is_long_dwell', 
-                'is_delayed', 'is_congested', 'is_slowdown', 'slowdown_lat', 'slowdown_lon', 'segment', 
-                'currentLoc', 'timestamp', 'latitude', 'longitude', 'currentStatus', 'is_weekend', 
-                'arrivalDelay', 'arrivalTime', 'departureDelay', 'departureTime', 'tripScheduleRelationship', 
-                'is_peak_hour', 'has_prev_stop', 'service_date']
+            steps = 5
+            for step in range(1, steps):
+                inter_lat = s1_lat + (s2_lat - s1_lat) * (step/steps)
+                inter_lon = s1_lon + (s2_lon - s1_lon) * (step/steps)
+                all_pings.append({
+                    'trip_id': f"{line_name}_{t_id}", 'timestamp': trip_start,
+                    'latitude': inter_lat, 'longitude': inter_lon, 'is_gps_valid': 1,
+                    'rain': is_raining, 'arrivalDelay': 0, 'congestionLevel': 1
+                })
+                trip_start += timedelta(seconds=40)
+
+        all_pings.append({
+            'trip_id': f"{line_name}_{t_id}", 'timestamp': trip_start,
+            'latitude': station_list[-1][1], 'longitude': station_list[-1][2],
+            'is_gps_valid': 1, 'rain': is_raining, 'arrivalDelay': 0, 'congestionLevel': 1
+        })
+
+    df = pd.DataFrame(all_pings)
     
-    for c in all_cols:
+    cols_to_fix = ['arrivalDelay', 'departureDelay', 'dwellTime_sec', 'temperature_2m', 
+                   'is_slowdown', 'is_congested', 'is_slow_speed', 'travel_time_sec']
+    for c in cols_to_fix:
         if c not in df.columns: df[c] = 0
             
     df.to_csv(filename, index=False)
-    print(f"✅ Saved {filename} with {len(df):,} rows.")
 
 os.makedirs('./data/manila', exist_ok=True)
-generate_dataset('./data/manila/train_data.csv', num_trips=2000)
-generate_dataset('./data/manila/test_data.csv', num_trips=400)
-generate_dataset('./data/manila/validation_data.csv', num_trips=200)
+generate_full_system_telemetry('./data/manila/train_data.csv', num_trips=1200)
+generate_full_system_telemetry('./data/manila/test_data.csv', num_trips=200)
+generate_full_system_telemetry('./data/manila/validation_data.csv', num_trips=100)
