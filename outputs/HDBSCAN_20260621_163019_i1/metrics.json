@@ -1,0 +1,48 @@
+{
+  "graph_method": "hdbscan",
+  "config": {
+    "n_epochs": 50,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "sample_fraction": 0.2,
+    "n_clusters": 26,
+    "cluster_count_method": "data-driven",
+    "n_segment_types": 122,
+    "node_embed_dim": 32,
+    "gat_hidden": 32,
+    "lstm_hidden": 64,
+    "historical_dim": 16
+  },
+  "timestamp": "2026-06-21 18:15:12",
+  "timing": {
+    "data_load_time_ms": 38837.2331,
+    "clustering_time_ms": 482607.4536,
+    "segment_building_time_ms": 1315803.6933,
+    "adjacency_time_ms": 3712.2204,
+    "dataset_creation_time_ms": 532.5427,
+    "training_time_s": 4389.5701,
+    "avg_model_forward_ms": 1.4612,
+    "total_inference_time_s": 16.0038,
+    "throughput_samples_per_sec": 7570.19,
+    "avg_latency_per_sample_ms": 0.1321,
+    "total_pipeline_time_ms": 6292590.9483
+  },
+  "Train": {
+    "R2": "0.8279",
+    "RMSE": "121.81 seconds",
+    "MAE": "50.89 seconds",
+    "MAPE": "16.11%"
+  },
+  "Val": {
+    "R2": "0.3262",
+    "RMSE": "117.57 seconds",
+    "MAE": "52.52 seconds",
+    "MAPE": "29.77%"
+  },
+  "Test": {
+    "R2": "0.6765",
+    "RMSE": "80.38 seconds",
+    "MAE": "38.83 seconds",
+    "MAPE": "16.40%"
+  }
+}
