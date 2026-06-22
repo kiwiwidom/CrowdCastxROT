@@ -2,7 +2,7 @@ import torch
 
 class Config:
     data_folder = './data/manila'
-    pretrained_weights = './outputs/magtte_best.pth'
+    pretrained_weights = './outputs/HDBSCAN_20260621_163019_i1/magtte_best.pth'
 
 
     sample_fraction = 1.0
